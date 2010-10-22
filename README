@@ -44,7 +44,7 @@ in all messages.
 - Navi can be asked to track a whole group.
 
 1.5 (Alpha Centauri):
-- Navi can be used to make whispers.
+- Navi can be used to make and track whispers for your friends.
 
 
 Versioning Explanation:  Each version is designed to require less than 12 hours
@@ -52,3 +52,35 @@ of time to implement, while having an interesting feature at the end.
 
 Version 1 revolves around interactions with other users.  The name for each
 version is based on the star Alpha Centauri (So close - yet so far away)
+
+--
+
+INSTALLATION
+
+Requirements:
+PHP 5.3+ w/ CURL installation, MySQL, PEAR's MAIL class, an email address configured as a "catch-all" on a domain (or sub-domain)
+
+Clone the repository based on the information supplied above.
+Create a mixi database in your DB.
+ - If you are using PHPMyAdmin, you can use the import command to import the database file in the /mysql directory.
+ - If you have SSH access to your server, navigate to the directory and type in the following command:
+     mysql -u <username> -p<password> mixi < db.sql
+  (You can replace mixi with whatever the DB name is in your constants file)
+
+
+Edit the constants.php:
+
+    EMAIL = Mixi login email
+    PASSWORD = Mixi login password
+
+    M_HOST = Mailing Host
+    M_FROM = Navi's login address
+    M_LOGIN = Navi's login
+    M_PASS = Navi's password
+    M_PORT = Mail server port for POP3
+    M_SEND_PORT = mail server port for SMTP
+    
+    LIST_EMAIL = email address you will send mails to when you want a list of messages.
+
+valid_from_addresses should return all emails which you want to set as being valid to send emails to.
+
