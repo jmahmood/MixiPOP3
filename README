@@ -1,0 +1,54 @@
+MixiPOP3 v. 1.000
+By Jawaad Mahmood
+
+Requests / Bugfixes: mixipop3@ordisante.com
+-------------------------------------------
+
+MixiPOP3 is an attempt to make the Mixi Social Networking System
+available over POP3 for users with unreliable connections.
+
+The overreaching objective is *to make it easier to make real-life friends
+through Mixi*.
+
+A secondary objective is to learn a bit about the use cases for PHP5.3's
+namespaces and improve on them as well.
+
+This project makes use of the excellent SimpleHTMLDOM library produced by
+S.C. Chen, Jose Solorzano et al.
+
+My own code for this project is under the GPL3.
+
+Navi, in the context of this document, refers to the mailbot who handles
+requests by mail.
+
+
+--
+
+1.00:
+- You can send and receive messages without issue on Mixi.
+
+Planned Features:
+
+1.1 (Rigil):
+- User can contact navi for an _ashiato_ (footsteps) report at any time.
+
+1.2 (Kent):
+- User can send navi a url for a thread that he wants followed.  Navi will
+update him x times a day with a list of all messages in that thread.
+
+1.3 (Kentaurus):
+- Navi's HTML messages are upgraded to include the a profile picture
+in all messages.
+
+1.4 (Toliman):
+- Navi can be asked to track a whole group.
+
+1.5 (Alpha Centauri):
+- Navi can be used to make whispers.
+
+
+Versioning Explanation:  Each version is designed to require less than 12 hours
+of time to implement, while having an interesting feature at the end.
+
+Version 1 revolves around interactions with other users.  The name for each
+version is based on the star Alpha Centauri (So close - yet so far away)
