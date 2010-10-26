@@ -59,7 +59,11 @@ INSTALLATION
 ------------
 
 __Requirements__
-PHP 5.3+ w/ CURL installation, MySQL, PEAR's MAIL class, an email address configured as a "catch-all" on a domain (or sub-domain)
+PHP 5.3+ w/ CURL installation, MySQL, PEAR's MAIL class, an email address configured as a "catch-all" on a domain (or sub-domain).
+
+*For Ubuntu:*
+    sudo apt-get install php-mail php-mail-mime php-mail-mimedecode php5-curl php5-imap
+    sudo apt-get install mysql-server
 
 Clone the repository based on the information supplied above.
 Create a mixi database in your DB.

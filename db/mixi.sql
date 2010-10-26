@@ -37,3 +37,10 @@ CREATE TABLE IF NOT EXISTS `profile` (
   PRIMARY KEY (`mixi_id`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS `ashiato` (
+  `datetime` datetime NOT NULL,
+  `from` int(11) DEFAULT NULL,
+  `relationship` enum('friend','friend-of-friend') COLLATE utf8_unicode_ci DEFAULT NULL,
+  UNIQUE KEY `from` (`from`,`datetime`),
+  KEY `datetime` (`datetime`)
+) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
