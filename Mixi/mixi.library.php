@@ -666,6 +666,7 @@ function all_ashiato($website, $page){
 	$ashiato_array = \mixi\ashiato\get_list::parse($html);
 	foreach($ashiato_array as $ashiato){
 		\mixi\Factory::save($ashiato);
+		download_profile_if_new($website, $ashiato->from);
 	}
 	// Retrives and saves a set of Ashiato.
 }
