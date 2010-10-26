@@ -133,7 +133,7 @@ function send_ashiato($from, $ashiato){
 		$u->load();
 		
 		$message = "<p><a href='http://www.mixi.jp/show_friend.pl?id=%d&from=navi'>%s</a> visited your page at %s<br><img src='%s' alt='%s'></p>";
-		$message = sprintf($message, $u->id(), $u->name, $aa->datetime, $u->profile_picture1, $u->name . "'s picture");
+		$message = sprintf($message, $u->id(), $u->nickname, $aa->datetime, $u->profile_picture1, $u->nickname . "'s picture");
 		$mail_message .= $message . "\n<hr>";
 	}
 
