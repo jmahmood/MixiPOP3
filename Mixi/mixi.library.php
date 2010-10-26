@@ -164,13 +164,13 @@ class Factory{
 		mysql_query($query) or die(mysql_error());
 	}
 	
-	static function load($object, $id=false){
+	static function load($object, $id=false, $id_name='id'){
 		if (!$id) return self::load_all($object);
 		
 
 		$table = self::extract_table_name($object);
-		$query = "SELECT * FROM $table WHERE id=%d";
-		$query = sprintf($query, (int) $id);
+		$query = "SELECT * FROM $table WHERE %s=%d";
+		$query = sprintf($query, $id_name, (int) $id);
 		$results = mysql_query($query) or die(mysql_error());
 		$return = array();
 		while ($result = mysql_fetch_assoc($results)){
@@ -182,6 +182,17 @@ class Factory{
 	static function load_all($object){
 		$table = self::extract_table_name($object);
 		$query = "SELECT * FROM $table";
+		$results = mysql_query($query) or die(mysql_error());
+		$return = array();
+		while ($result = mysql_fetch_assoc($results)){
+			$return[] = $result;
+		}
+		return $return;
+	}
+	
+	static function load_new($object){
+		$table = self::extract_table_name($object);
+		$query = "SELECT * FROM $table order by `datetime` DESC LIMIT 50";
 		$results = mysql_query($query) or die(mysql_error());
 		$return = array();
 		while ($result = mysql_fetch_assoc($results)){
@@ -209,13 +220,17 @@ class Factory{
 namespace mixi\profile;
 
 class obj implements \mixi\ns_class{
-	public $mixi_id, $name, $sex, $location, $age, $birthday, $bloodtype, $hometown, $hobby, $introduction, $profile_picture1, $profile_picture2, $profile_picture3, $foods, $job, $belong_to;
+	public $mixi_id, $nickname, $name, $sex, $location, $age, $birthday, $bloodtype, $hometown, $hobby, $introduction, $profile_picture1, $profile_picture2, $profile_picture3, $foods, $job, $belong_to;
 
 	function __construct($id=false){ if ($id){ $this->set_id($id);} }
 	function set_id($id){ $this->mixi_id = $id; }
 	function id(){ return $this->mixi_id; }
 	function ns(){ return __NAMESPACE__; }
 	function image(){ return $profile_picture1; }
+	function load(){
+		$a = \mixi\Factory::load($this, $this->id(), 'mixi_id');
+		\mixi\Factory::init($this, $a[0]);
+	}
 }
 
 
@@ -284,6 +299,9 @@ class get_profile implements \mixi\ns_spider{
 		$photo_url = $ret[0]->src;
 		
 		$profile_array['profile_picture1']=$photo_url;
+		
+		$ret = $parsed_html->find('title');
+		$profile_array['nickname'] = str_replace('[mixi] ','',$ret[0]->plaintext);
 
 		return $profile_array;
 	}
@@ -504,8 +522,7 @@ class get_list implements \mixi\ns_spider_list{
 		$content = $contents[1];
 		$contents = explode('</ul>', $content, 2);
 		$content = $contents[0];
-		
-		echo $content;
+		$content = mb_convert_encoding($content, "UTF-8", "EUC-JP");
 
 		$date_regex  = '<span class="date">([^<]+)</span>(.*?)';
 		$name_regex  = 'show_friend.pl\?id=(.*?)">([^<]+)</a>';
@@ -514,7 +531,7 @@ class get_list implements \mixi\ns_spider_list{
 		
 		
 		$footprints[1] = array_map("trim", $footprints[1]);
-
+		
 		$date = $footprints[1];
 		$userid = $footprints[3];
 		$username = $footprints[4];
@@ -525,15 +542,38 @@ class get_list implements \mixi\ns_spider_list{
 		for($i=0; $i<$total; $i++){
 			$init_array = array();
 			$init_array['from'] = $userid[$i];
-			$init_array['datetime'] = $date[$i];
-
-			$ashiato = new obj($init_array);
+			$init_array['datetime'] = str_replace('00:00', array_pop(explode(" ", $date[$i])), \mixi\decode_date($date[$i])) ;
+			$ashiato = new obj();
+			\mixi\Factory::init($ashiato, $init_array);
 			array_push($ashiato_array, $ashiato);
 		}
 		return $ashiato_array;
 	}
 	
 }
+
+class last_ten{
+	var $ashiato;
+	function __construct(){
+		$ashiato_array = \mixi\Factory::load_new($this);
+		$ashiato_array = array_chunk($ashiato_array, 10);
+		$ashiato_array = reset($ashiato_array);
+
+		$this->ashiato = array();
+		foreach($ashiato_array as $a_a){
+			$a = new obj();
+			\mixi\Factory::init($a, $a_a);
+			$this->ashiato[] = $a;
+		}
+	}
+	
+	function ns(){ return __NAMESPACE__; }
+	function get(){
+		return $this->ashiato;
+	}
+	
+}
+
 
 // This namespace will store all classes related to dealing with blogging on Mixi.
 namespace mixi\blog;
@@ -621,7 +661,6 @@ function send(&$website, $object){
 
 }
 
-// Incomplete.
 function all_ashiato($website, $page){
 	$url = \mixi\ashiato\get_list::url();
 	$get_vars = \mixi\ashiato\get_list::get_vars($page);
@@ -631,11 +670,11 @@ function all_ashiato($website, $page){
 	
 	
 	$ashiato_array = \mixi\ashiato\get_list::parse($html);
-	print_r($ashiato_array);
 	foreach($ashiato_array as $ashiato){
 		\mixi\Factory::save($ashiato);
+		download_profile_if_new($website, $ashiato->from);
 	}
-	// Retrives and saves a set of Ashiato.
+	return $ashiato_array;
 }
 
 
@@ -699,8 +738,7 @@ function recent(){
 }
 
 function recent_ashiato(){
-	$prep = new \mixi\ashiato\get_list();
-	
+	$prep = new \mixi\ashiato\last_ten();
 	return $prep->get();
 }
 
@@ -714,12 +752,17 @@ $object->to = 13465281;
 $object->subject= "Yumiko?";
 $object->details = "Can I take Yumiko out on a date??"; // The answer is "fuck you."
 $a = \mixi\library\send($website, $object)
-*/
+
+
+
 
 
 $website = new \Website();
 $website->cookies();
 \mixi\library\connect($website);
 print_r(all_ashiato($website, 1));
+
+*/
+
 
 ?>

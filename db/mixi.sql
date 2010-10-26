@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS `messages` (
 
 CREATE TABLE IF NOT EXISTS `profile` (
   `mixi_id` int(10) unsigned NOT NULL,
+  `nickname` varchar(80) COLLATE utf8_unicode_ci NOT NULL,
   `name` varchar(80) COLLATE utf8_unicode_ci NOT NULL,
   `sex` enum('男性','女性') COLLATE utf8_unicode_ci DEFAULT NULL,
   `location` varchar(30) COLLATE utf8_unicode_ci NOT NULL,
@@ -37,3 +38,10 @@ CREATE TABLE IF NOT EXISTS `profile` (
   PRIMARY KEY (`mixi_id`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS `ashiato` (
+  `datetime` datetime NOT NULL,
+  `from` int(11) DEFAULT NULL,
+  `relationship` enum('friend','friend-of-friend') COLLATE utf8_unicode_ci DEFAULT NULL,
+  UNIQUE KEY `from` (`from`,`datetime`),
+  KEY `datetime` (`datetime`)
+) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;

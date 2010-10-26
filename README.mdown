@@ -1,4 +1,4 @@
-MixiPOP3 v. 1.001
+MixiPOP3 v. 1.100
 =================
 
 By Jawaad Mahmood
@@ -28,14 +28,11 @@ requests by mail.
 Roadmap
 -------
 
-__Currently__: v1.00
+__Currently__: Rigil v1.10
 - You can send and receive messages without issue on Mixi.
-
-__Planned Features__
-
-*1.1 (Rigil)*
 - User can contact navi for an _ashiato_ (footsteps) report at any time.
 
+__Planned Releases __
 *1.2 (Kent)*
 - User can send navi a url for a thread that he wants followed.  Navi will
 update him x times a day with a list of all messages in that thread.
@@ -59,7 +56,11 @@ INSTALLATION
 ------------
 
 __Requirements__
-PHP 5.3+ w/ CURL installation, MySQL, PEAR's MAIL class, an email address configured as a "catch-all" on a domain (or sub-domain)
+PHP 5.3+ w/ CURL installation, MySQL, PEAR's MAIL class, an email address configured as a "catch-all" on a domain (or sub-domain).
+
+*For Ubuntu:*
+    sudo apt-get install php-mail php-mail-mime php-mail-mimedecode php5-curl php5-imap
+    sudo apt-get install mysql-server
 
 Clone the repository based on the information supplied above.
 Create a mixi database in your DB.
