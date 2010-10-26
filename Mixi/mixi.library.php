@@ -220,7 +220,7 @@ class Factory{
 namespace mixi\profile;
 
 class obj implements \mixi\ns_class{
-	public $mixi_id, $name, $sex, $location, $age, $birthday, $bloodtype, $hometown, $hobby, $introduction, $profile_picture1, $profile_picture2, $profile_picture3, $foods, $job, $belong_to;
+	public $mixi_id, $nickname, $name, $sex, $location, $age, $birthday, $bloodtype, $hometown, $hobby, $introduction, $profile_picture1, $profile_picture2, $profile_picture3, $foods, $job, $belong_to;
 
 	function __construct($id=false){ if ($id){ $this->set_id($id);} }
 	function set_id($id){ $this->mixi_id = $id; }
@@ -299,6 +299,9 @@ class get_profile implements \mixi\ns_spider{
 		$photo_url = $ret[0]->src;
 		
 		$profile_array['profile_picture1']=$photo_url;
+		
+		$ret = $parsed_html->find('title');
+		$profile_array['nickname'] = str_replace('[mixi] ','',$ret[0]->plaintext);
 
 		return $profile_array;
 	}

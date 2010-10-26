@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS `messages` (
 
 CREATE TABLE IF NOT EXISTS `profile` (
   `mixi_id` int(10) unsigned NOT NULL,
+  `nickname` varchar(80) COLLATE utf8_unicode_ci NOT NULL,
   `name` varchar(80) COLLATE utf8_unicode_ci NOT NULL,
   `sex` enum('男性','女性') COLLATE utf8_unicode_ci DEFAULT NULL,
   `location` varchar(30) COLLATE utf8_unicode_ci NOT NULL,
