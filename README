@@ -64,7 +64,7 @@ Clone the repository based on the information supplied above.
 Create a mixi database in your DB.
  - If you are using PHPMyAdmin, you can use the import command to import the database file in the /mysql directory.
  - If you have SSH access to your server, navigate to the directory and type in the following command:
-     mysql -u <username> -p<password> mixi < db.sql
+     mysql -u <username> -p<password> mixi < <ROOT MIXIPOP3 DIRECTORY>/db/mixi.sql
   (You can replace mixi with whatever the DB name is in your constants file)
 
 
