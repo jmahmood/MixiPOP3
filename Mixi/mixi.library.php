@@ -504,17 +504,15 @@ class get_list implements \mixi\ns_spider_list{
 		$content = $contents[1];
 		$contents = explode('</ul>', $content, 2);
 		$content = $contents[0];
-		
-		echo $content;
+		$content = mb_convert_encoding($content, "UTF-8", "EUC-JP");
 
 		$date_regex  = '<span class="date">([^<]+)</span>(.*?)';
 		$name_regex  = 'show_friend.pl\?id=(.*?)">([^<]+)</a>';
 		$messages_regex = '#' .  $date_regex . $name_regex .'#uims';
 		preg_match_all($messages_regex, $content, $footprints);
 		
-		
 		$footprints[1] = array_map("trim", $footprints[1]);
-
+		
 		$date = $footprints[1];
 		$userid = $footprints[3];
 		$username = $footprints[4];
@@ -526,8 +524,8 @@ class get_list implements \mixi\ns_spider_list{
 			$init_array = array();
 			$init_array['from'] = $userid[$i];
 			$init_array['datetime'] = $date[$i];
-
-			$ashiato = new obj($init_array);
+			$ashiato = new obj();
+			\mixi\Factory::init($ashiato, $init_array);
 			array_push($ashiato_array, $ashiato);
 		}
 		return $ashiato_array;
