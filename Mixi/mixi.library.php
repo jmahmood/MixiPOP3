@@ -164,13 +164,13 @@ class Factory{
 		mysql_query($query) or die(mysql_error());
 	}
 	
-	static function load($object, $id=false){
+	static function load($object, $id=false, $id_name='id'){
 		if (!$id) return self::load_all($object);
 		
 
 		$table = self::extract_table_name($object);
-		$query = "SELECT * FROM $table WHERE id=%d";
-		$query = sprintf($query, (int) $id);
+		$query = "SELECT * FROM $table WHERE %s=%d";
+		$query = sprintf($query, $id_name, (int) $id);
 		$results = mysql_query($query) or die(mysql_error());
 		$return = array();
 		while ($result = mysql_fetch_assoc($results)){
@@ -227,6 +227,10 @@ class obj implements \mixi\ns_class{
 	function id(){ return $this->mixi_id; }
 	function ns(){ return __NAMESPACE__; }
 	function image(){ return $profile_picture1; }
+	function load(){
+		$a = \mixi\Factory::load($this, $this->id(), 'mixi_id');
+		\mixi\Factory::init($this, $a[0]);
+	}
 }
 
 
@@ -654,7 +658,6 @@ function send(&$website, $object){
 
 }
 
-// Incomplete.
 function all_ashiato($website, $page){
 	$url = \mixi\ashiato\get_list::url();
 	$get_vars = \mixi\ashiato\get_list::get_vars($page);
@@ -668,7 +671,7 @@ function all_ashiato($website, $page){
 		\mixi\Factory::save($ashiato);
 		download_profile_if_new($website, $ashiato->from);
 	}
-	// Retrives and saves a set of Ashiato.
+	return $ashiato_array;
 }
 
 
@@ -746,6 +749,15 @@ $object->to = 13465281;
 $object->subject= "Yumiko?";
 $object->details = "Can I take Yumiko out on a date??"; // The answer is "fuck you."
 $a = \mixi\library\send($website, $object)
+
+
+
+
+
+$website = new \Website();
+$website->cookies();
+\mixi\library\connect($website);
+print_r(all_ashiato($website, 1));
 
 */
 

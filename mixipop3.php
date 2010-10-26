@@ -102,6 +102,7 @@ function send($from, $messages){
 		if (!is_a($message, "mixi\messages\obj")){
 			throw new \Exception("Trying to use 'Send' for a non message object.");
 		}
+
 		$reply_to = $message->from . '@dsmob.com' . "<br>\r\n";
 		$subject = 'Subject: ' . $message->subject . "<br>\r\n";
 		$original_url = 'Original: http://www.mixi.jp/' . $message->url . "<br>\r\n";
@@ -120,6 +121,23 @@ function send($from, $messages){
 	}
 	POP3::send_mail($from, 'List Information', $mail_message);
 
+}
+
+
+function send_ashiato($from, $ashiato){
+	$mail_message = "";
+
+	foreach($ashiato as $aa){
+
+		$u = new \mixi\profile\obj($aa->from);
+		$u->load();
+		
+		$message = "<p><a href='http://www.mixi.jp/show_friend.pl?id=%d&from=navi'>%s</a> visited your page at %s<br><img src='%s' alt='%s'></p>";
+		$message = sprintf($message, $u->id(), $u->name, $aa->datetime, $u->profile_picture1, $u->name . "'s picture");
+		$mail_message .= $message . "\n<hr>";
+	}
+
+	POP3::send_mail($from, 'Ashiato List', $mail_message);
 }
 
 // _____________PARSING__________
