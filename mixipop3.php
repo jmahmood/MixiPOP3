@@ -35,8 +35,8 @@ require_once( dirname(__FILE__) . "/website/website.upgrade.php");
 require_once( dirname(__FILE__) . "/Mixi/mixi.library.php");
 require_once( dirname(__FILE__) . "/email/pop3.php");
 
-\mysql_connect('host','username','password');
-\mysql_select_db('mixi');
+\mysql_connect(\db\constants\host(), \db\constants\user(), \db\constants\pass());
+\mysql_select_db(\db\constants\database());
 \mysql_query("SET NAMES UTF8;");
 
 
@@ -58,6 +58,7 @@ function cycle(){
 	}
       $mail_connection->delete($message);
     }
+    die();
     $mail_connection->purge();
   }	
 }
@@ -92,11 +93,15 @@ function action($mail_connection, $message){
 }
 
 
+
 // Sends a collection of messages to your pop3 email.
 function send($from, $messages){
 	$mail_message = "";
 
 	foreach($messages as $message){
+		if (!is_a($message, "mixi\messages\obj")){
+			throw new \Exception("Trying to use 'Send' for a non message object.");
+		}
 		$reply_to = $message->from . '@dsmob.com' . "<br>\r\n";
 		$subject = 'Subject: ' . $message->subject . "<br>\r\n";
 		$original_url = 'Original: http://www.mixi.jp/' . $message->url . "<br>\r\n";
@@ -224,7 +229,7 @@ function mixi_messages($mail_connection, $message){
 	check_valid_from($from);
 	check_valid_list_to($to);
 	$messages = \mixi\library\recent();
-	send($from, $to, $messages);
+	send($from, $messages);
 }
 
 // Get a list of all recent emails in the mixi DB.
@@ -234,8 +239,8 @@ function mixi_ashiato($mail_connection, $message){
 	$to = $message->to;
 	check_valid_from($from);
 	check_valid_list_to($to);
-	$messages = \mixi\library\recent_ashiato();
-	send($from, $to, $messages);
+	$ashiato = \mixi\library\recent_ashiato();
+	send_ashiato($from, $ashiato);
 }
 
 
@@ -253,6 +258,7 @@ function refresh_mixi_messages($mail_connection, $message){
 	\mixi\library\connect($website);
 
 	$messages = \mixi\library\download_messages_and_profiles($website);
+	$messages = \mixi\library\all_ashiato($website, 1);
 	send($from, $messages);
 }
 

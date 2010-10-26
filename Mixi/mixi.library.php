@@ -190,6 +190,17 @@ class Factory{
 		return $return;
 	}
 	
+	static function load_new($object){
+		$table = self::extract_table_name($object);
+		$query = "SELECT * FROM $table order by `datetime` DESC LIMIT 50";
+		$results = mysql_query($query) or die(mysql_error());
+		$return = array();
+		while ($result = mysql_fetch_assoc($results)){
+			$return[] = $result;
+		}
+		return $return;
+	}
+	
 	static function init(&$object, $array){
 		if (!($object instanceof ns_class)){
 			throw new \Exception("Factory Save only works on classes that extend ns_class");
@@ -511,6 +522,7 @@ class get_list implements \mixi\ns_spider_list{
 		$messages_regex = '#' .  $date_regex . $name_regex .'#uims';
 		preg_match_all($messages_regex, $content, $footprints);
 		
+		
 		$footprints[1] = array_map("trim", $footprints[1]);
 		
 		$date = $footprints[1];
@@ -523,7 +535,7 @@ class get_list implements \mixi\ns_spider_list{
 		for($i=0; $i<$total; $i++){
 			$init_array = array();
 			$init_array['from'] = $userid[$i];
-			$init_array['datetime'] = $date[$i];
+			$init_array['datetime'] = str_replace('00:00', array_pop(explode(" ", $date[$i])), \mixi\decode_date($date[$i])) ;
 			$ashiato = new obj();
 			\mixi\Factory::init($ashiato, $init_array);
 			array_push($ashiato_array, $ashiato);
@@ -532,6 +544,29 @@ class get_list implements \mixi\ns_spider_list{
 	}
 	
 }
+
+class last_ten{
+	var $ashiato;
+	function __construct(){
+		$ashiato_array = \mixi\Factory::load_new($this);
+		$ashiato_array = array_chunk($ashiato_array, 10);
+		$ashiato_array = reset($ashiato_array);
+
+		$this->ashiato = array();
+		foreach($ashiato_array as $a_a){
+			$a = new obj();
+			\mixi\Factory::init($a, $a_a);
+			$this->ashiato[] = $a;
+		}
+	}
+	
+	function ns(){ return __NAMESPACE__; }
+	function get(){
+		return $this->ashiato;
+	}
+	
+}
+
 
 // This namespace will store all classes related to dealing with blogging on Mixi.
 namespace mixi\blog;
@@ -629,7 +664,6 @@ function all_ashiato($website, $page){
 	
 	
 	$ashiato_array = \mixi\ashiato\get_list::parse($html);
-	print_r($ashiato_array);
 	foreach($ashiato_array as $ashiato){
 		\mixi\Factory::save($ashiato);
 	}
@@ -697,8 +731,7 @@ function recent(){
 }
 
 function recent_ashiato(){
-	$prep = new \mixi\ashiato\get_list();
-	
+	$prep = new \mixi\ashiato\last_ten();
 	return $prep->get();
 }
 
@@ -712,12 +745,8 @@ $object->to = 13465281;
 $object->subject= "Yumiko?";
 $object->details = "Can I take Yumiko out on a date??"; // The answer is "fuck you."
 $a = \mixi\library\send($website, $object)
+
 */
 
-
-$website = new \Website();
-$website->cookies();
-\mixi\library\connect($website);
-print_r(all_ashiato($website, 1));
 
 ?>
