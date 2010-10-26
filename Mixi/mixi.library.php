@@ -499,15 +499,19 @@ class get_list implements \mixi\ns_spider_list{
 	function get_vars($page){ return array('page'=>$page); }
 	function post_vars($page){ return array(); }
 	function parse($html){
-		$contents = explode('<ul class="logList01">', $message_content, 2);
+		$contents = explode('<ul class="logList01">', $html, 2);
+		
 		$content = $contents[1];
 		$contents = explode('</ul>', $content, 2);
 		$content = $contents[0];
+		
+		echo $content;
 
 		$date_regex  = '<span class="date">([^<]+)</span>(.*?)';
 		$name_regex  = 'show_friend.pl\?id=(.*?)">([^<]+)</a>';
 		$messages_regex = '#' .  $date_regex . $name_regex .'#uims';
 		preg_match_all($messages_regex, $content, $footprints);
+		
 		
 		$footprints[1] = array_map("trim", $footprints[1]);
 
@@ -528,6 +532,7 @@ class get_list implements \mixi\ns_spider_list{
 		}
 		return $ashiato_array;
 	}
+	
 }
 
 // This namespace will store all classes related to dealing with blogging on Mixi.
@@ -618,17 +623,21 @@ function send(&$website, $object){
 
 // Incomplete.
 function all_ashiato($website, $page){
-	$url = 'http://www.mixi.jp/' . \mixi\ashiato\get_list::url();
+	$url = \mixi\ashiato\get_list::url();
 	$get_vars = \mixi\ashiato\get_list::get_vars($page);
 	$get_vars = \mixi\url_encode_array($get_vars); 
-	//$html = $website->get($url, $get_vars);
-	//$ashiato_array = \mixi\ashiato\get_list::parse($html);
-	//foreach($ashiato_array as $ashiato){
-	//	\mixi\Factory::save($ashiato);
-	//}
-	//
+	$website->get($url, $get_vars);
+	$html = $website->html();
+	
+	
+	$ashiato_array = \mixi\ashiato\get_list::parse($html);
+	print_r($ashiato_array);
+	foreach($ashiato_array as $ashiato){
+		\mixi\Factory::save($ashiato);
+	}
 	// Retrives and saves a set of Ashiato.
 }
+
 
 function download_user_profile(&$website, $id){
 	// Retrieves the To and From from $obj.
@@ -689,6 +698,12 @@ function recent(){
 	return $prep->get();
 }
 
+function recent_ashiato(){
+	$prep = new \mixi\ashiato\get_list();
+	
+	return $prep->get();
+}
+
 /*
 $website = new \Website();
 $website->cookies();
@@ -701,5 +716,10 @@ $object->details = "Can I take Yumiko out on a date??"; // The answer is "fuck y
 $a = \mixi\library\send($website, $object)
 */
 
+
+$website = new \Website();
+$website->cookies();
+\mixi\library\connect($website);
+print_r(all_ashiato($website, 1));
 
 ?>

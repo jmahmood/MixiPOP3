@@ -47,7 +47,6 @@ class Website{
         }
         
         function __destruct(){
-	    echo 'lol';
             curl_close($this->curl);
             if ($this->fp) fclose($this->fp);
         }
