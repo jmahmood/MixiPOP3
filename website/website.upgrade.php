@@ -137,6 +137,9 @@ class Website{
 
         }
         
+	function encode($old, $new){
+	    $this->html = mb_convert_encoding($this->html, $new, $old);
+	}
 
 }
 ?>

@@ -32,7 +32,7 @@ __Currently__: Rigil v1.10
 - You can send and receive messages without issue on Mixi.
 - User can contact navi for an _ashiato_ (footsteps) report at any time.
 
-__Planned Releases __
+__Planned Releases__
 *1.2 (Kent)*
 - User can send navi a url for a thread that he wants followed.  Navi will
 update him x times a day with a list of all messages in that thread.
@@ -86,5 +86,5 @@ Edit the constants.php:
     
     LIST_EMAIL = email address you will send mails to when you want a list of messages.
 
-valid_from_addresses should return all emails which you want to set as being valid to send emails to.
+*valid_from_addresses* should return all emails which you want to set as being valid to send emails to.
 

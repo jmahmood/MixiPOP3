@@ -1,7 +1,7 @@
 <?php
 
 /*
-MixiPop3 0.1
+MixiPop3 1.100
 © Copyright 2010 Jawaad Mahmood
 
     MixiLibrary is free software: you can redistribute it and/or modify

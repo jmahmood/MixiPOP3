@@ -430,6 +430,7 @@ class get_message implements \mixi\ns_spider{
 		$mmi = $parsed_html->find('form[action^=reply_message.pl?reply_message_id]');
 		$mixi_message_id = $mmi[0]->action;
 		\parse_str(\parse_url($mixi_message_id, \PHP_URL_QUERY), $array);
+		
 
 		$mmi = $parsed_html->find('a[href^=show_friend.pl?]');
 		\parse_str(\parse_url($mmi[1]->href, \PHP_URL_QUERY), $array2);
@@ -581,7 +582,63 @@ define("DIARY_URL", "http://mixi.jp/new_friend_diary.pl");
 
 // This namespace will store all classes related to dealing with message forums on Mixi.
 namespace mixi\bbs;
-define("MIXI_THREADS_URL", "http://mixi.jp/new_bbs.pl");
+define("MY_MIXI_THREADS_URL", "http://mixi.jp/new_bbs.pl");
+
+
+class obj implements \mixi\ns_class{
+	public $thread_id, $community, $community_name, $subject, $datetime, $url;
+	function __construct($id=false){ if ($id){ $this->set_id($id);} }
+	function set_id($id){ $this->miximessage_id = $id; }
+	function id(){ return $this->miximessage_id; }
+	function ns(){ return __NAMESPACE__; }
+}
+
+
+class get_community_threads implements \mixi\ns_spider_list{
+	function url(){ return MY_MIXI_THREADS_URL; }
+	function post_vars($obj){ return false; }
+	function get_vars($obj){ return false; }
+	function parse($html){
+		$datetime_regex = '<dt class="iconTopic">([^<]+)</dt>[^<]+';
+		$link_topic_community_regex = '<dd><a href="([^"]+)">([^<]+)</a>([^<]+)</dd>';
+		$messages_regex = '#' . $datetime_regex . $link_topic_community_regex . '#ims';
+	
+		preg_match_all($messages_regex, $html, $posts);
+		$dates = $posts[1];
+		$urls = $posts[2];
+		$subjects = $posts[3];
+		$communities = $posts[4];
+
+		$total = count($communities);
+
+		$posts_array = array();
+
+	
+		for($i=0; $i<$total; $i++){
+			$init_array = array();
+			$init_array['community_name'] = mb_substr(trim($communities[$i]), 1, -1);
+			$init_array['subject'] = $subjects[$i];
+			$init_array['datetime'] = \mixi\decode_date($dates[$i]);
+			$init_array['url'] = $urls[$i];
+			
+			\parse_str(\parse_url($urls[$i], \PHP_URL_QUERY), $array);
+			$init_array['community'] = $array['comm_id'];
+			$init_array['thread_id'] = $array['id'];
+
+
+			$post = new obj();
+			\mixi\Factory::init($post, $init_array);
+			array_push($posts_array, $post);
+		}
+		
+		print_r($posts_array);
+		
+		return $posts_array;
+
+	}
+	
+}
+
 
 // This namespace stores all classes related to dealing with logging into Mixi.
 namespace mixi\login;
@@ -742,27 +799,6 @@ function recent_ashiato(){
 	return $prep->get();
 }
 
-/*
-$website = new \Website();
-$website->cookies();
-\mixi\library\connect($website);
-
-$object = new \mixi\messages\obj();
-$object->to = 13465281;
-$object->subject= "Yumiko?";
-$object->details = "Can I take Yumiko out on a date??"; // The answer is "fuck you."
-$a = \mixi\library\send($website, $object)
-
-
-
-
-
-$website = new \Website();
-$website->cookies();
-\mixi\library\connect($website);
-print_r(all_ashiato($website, 1));
-
-*/
 
 
 ?>
