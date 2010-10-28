@@ -581,9 +581,9 @@ namespace mixi\blog;
 define("DIARY_URL", "http://mixi.jp/new_friend_diary.pl");
 
 // This namespace extracts information about messages from a thread.
-namespace mixi\bbs\messages;
+namespace mixi\bbs\posts;
 class obj implements \mixi\ns_class{
-	public $thread_id, $thread_title, $message_order, $from, $datetime, $contents, $url;
+	public $community, $thread_id, $thread_title, $message_order, $from, $datetime, $contents, $url;
 	function __construct($id=false){ if ($id){ $this->set_id($id);} }
 	function set_id($id){ $this->thread_id = $id; }
 	function id(){ return $this->thread_id; }
@@ -592,11 +592,14 @@ class obj implements \mixi\ns_class{
 
 // Gets all messages from a threads.
 class get_list implements \mixi\ns_spider_list{
-	function url(){ return 'http://mixi.jp/view_bbs.pl'; }
+	// For some reason, it won't return the full page
+	// if you don't include the "www" in the url.
+	function url(){ return 'http://www.mixi.jp/view_bbs.pl'; }
 	function post_vars($obj){ return false; }
 	function get_vars($obj){
 		if (!$obj->thread_id) throw new \Exception("The object must have a thread id to be passed to the messagethreads function");
-		$array = array('id'=>$obj->thread_id,'comm_id'=>$obj->comm_id,'page'=>'all');
+		$array = array('id'=>$obj->thread_id,'comm_id'=>$obj->community,'page'=>'all');
+		if ($obj->page) $array['page']= $obj->page;
 		return \mixi\url_encode_array( $array );
 	}
 	function parse($html){
@@ -635,7 +638,6 @@ class get_list implements \mixi\ns_spider_list{
 
 			$obj_array[] = $obj;
 		}
-		print_r($obj_array);
 		return $obj_array;
 	}
 	
@@ -903,6 +905,44 @@ function recent_ashiato(){
 	return $prep->get();
 }
 
+function refresh_thread_messages($thread){
+	$website = new Website();
+	$website->cookies();
+	\mixi\library\connect($website);
+	
+	$o = new \mixi\bbs\posts\obj();
+	$o->thread_id = $thread->thread_id;
+	$o->community = $thread->community;
+	$o->page = 'all';
+	$website->get(\mixi\bbs\posts\get_list::url(), \mixi\bbs\posts\get_list::get_vars($o));
+	$website->encode('EUC-JP','UTF-8');
+	$messages = \mixi\bbs\posts\get_list::parse($website->html);
+	\mixi\Factory::save($messages);
+}
 
+function get_thread_messages($thread){
+	$o = new \mixi\bbs\posts\obj();
+	$o->thread_id = $thread->thread_id;
+	$array = \mixi\Factory::load($o, $o->thread_id, 'thread_id');
+
+	$o_array = array();
+	foreach($array as $a){
+		$o = new \mixi\bbs\posts\obj();
+		\mixi\Factory::init($o, $a);
+		$o_array[] = $o;
+	}
+	return $o_array;
+}
+
+function refresh_community_threads($community){
+	$b = new \mixi\bbs\threads\obj();
+	$b->community = $community;
+	
+	$website->get($a->url(), \mixi\bbs\threads\community::get_vars($b));
+	$website->encode('EUC-JP','UTF-8');
+	$a->parse($website->html());
+	$a = new \mixi\bbs\threads\community();
+	
+}
 
 ?>

@@ -13,8 +13,6 @@ $object->details = "Can I take Yumiko out on a date??"; // The answer is "fuck y
 $a = \mixi\library\send($website, $object)
 
 
-$website = new \Website();
-$website->cookies();
 
 $b = new \mixi\bbs\threads\obj();
 $b->community = 13575;
@@ -24,9 +22,19 @@ $website->encode('EUC-JP','UTF-8');
 $a->parse($website->html());
 $a = new \mixi\bbs\threads\community();
 */
-$a = new \mixi\bbs\messages\get_list();
-$info = file_get_contents('/home/jawaad/Text-1.html');
-print_r($a->parse($info));
+
+$website = new Website();
+$website->cookies();
+\mixi\library\connect($website);
+
+$o = new \mixi\bbs\messages\obj();
+$o->thread_id = 2129705;
+$o->community = 13575;
+$o->page = 'all';
+$website->get(\mixi\bbs\messages\get_list::url(), \mixi\bbs\messages\get_list::get_vars($o));
+$website->encode('EUC-JP','UTF-8');
+print_r(\mixi\bbs\messages\get_list::parse($website->html));
+
 
 
 #\mixi\library\connect($website);
