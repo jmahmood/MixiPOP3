@@ -581,20 +581,68 @@ namespace mixi\blog;
 define("DIARY_URL", "http://mixi.jp/new_friend_diary.pl");
 
 // This namespace will store all classes related to dealing with message forums on Mixi.
-namespace mixi\bbs;
+namespace mixi\bbs\threads;
 define("MY_MIXI_THREADS_URL", "http://mixi.jp/new_bbs.pl");
-
+define("COMMUNITY_THREADS_URL", "http://mixi.jp/list_bbs.pl");
 
 class obj implements \mixi\ns_class{
 	public $thread_id, $community, $community_name, $subject, $datetime, $url;
 	function __construct($id=false){ if ($id){ $this->set_id($id);} }
-	function set_id($id){ $this->miximessage_id = $id; }
-	function id(){ return $this->miximessage_id; }
+	function set_id($id){ $this->thread_id = $id; }
+	function id(){ return $this->thread_id; }
 	function ns(){ return __NAMESPACE__; }
 }
 
 
-class get_community_threads implements \mixi\ns_spider_list{
+// Modify parse so we extract the date as well.
+
+// Gets all front-page threads from a community.
+class community implements \mixi\ns_spider_list{
+	function url(){ return COMMUNITY_THREADS_URL; }
+	function post_vars($obj){ return false; }
+	function get_vars($obj){
+		if (!$obj->community) throw new \Exception("The object must have a community id to be passed to the community threads function");
+		$array = array('id'=>$obj->community,'type'=>'bbs');
+		return \mixi\url_encode_array( $array );
+	}
+	function parse($html){
+		$parsed_html = \str_get_html($html);
+		$community_name = $parsed_html->find('title');
+		$community_name = $community_name[0]->innertext();
+		$community_name = trim(str_replace(array('[mixi]','トピック一覧'),array('',''),$community_name));
+		
+		
+		$mmi = $parsed_html->find('dt[class=bbsTitle]');
+		$objects = array();
+		foreach ($mmi as $ret){
+			$a = new obj();
+			$a->community_name = $community_name;
+
+			$ref = $ret->find('span[class=date]');
+			$a->datetime = \mixi\decode_date($ref[0]->innertext());
+
+			$ref = $ret->find('a[href^=view_bbs.pl?]');
+			foreach($ref as $r){
+				if (!is_numeric($r->innertext) && $r->innertext != 'コメント'){
+					$a->subject = $r->innertext;
+					$a->url = $r->href;
+					\parse_str(\parse_url($a->url, \PHP_URL_QUERY), $array);
+					$a->community = $array['comm_id'];
+					$a->thread_id = $array['id'];
+				}
+				elseif (is_numeric($r->innertext)){
+					$a->post_count = $r->innertext;
+				}
+			}
+			$objects[] = $a;
+		}
+		return $objects;
+	}
+	
+}
+
+// Gets all threads related to you.
+class related implements \mixi\ns_spider_list{
 	function url(){ return MY_MIXI_THREADS_URL; }
 	function post_vars($obj){ return false; }
 	function get_vars($obj){ return false; }
