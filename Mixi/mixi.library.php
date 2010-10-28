@@ -580,7 +580,69 @@ class last_ten{
 namespace mixi\blog;
 define("DIARY_URL", "http://mixi.jp/new_friend_diary.pl");
 
-// This namespace will store all classes related to dealing with message forums on Mixi.
+// This namespace extracts information about messages from a thread.
+namespace mixi\bbs\messages;
+class obj implements \mixi\ns_class{
+	public $thread_id, $thread_title, $message_order, $from, $datetime, $contents, $url;
+	function __construct($id=false){ if ($id){ $this->set_id($id);} }
+	function set_id($id){ $this->thread_id = $id; }
+	function id(){ return $this->thread_id; }
+	function ns(){ return __NAMESPACE__; }
+}
+
+// Gets all messages from a threads.
+class get_list implements \mixi\ns_spider_list{
+	function url(){ return 'http://mixi.jp/view_bbs.pl'; }
+	function post_vars($obj){ return false; }
+	function get_vars($obj){
+		if (!$obj->thread_id) throw new \Exception("The object must have a thread id to be passed to the messagethreads function");
+		$array = array('id'=>$obj->thread_id,'comm_id'=>$obj->comm_id,'page'=>'all');
+		return \mixi\url_encode_array( $array );
+	}
+	function parse($html){
+		$parsed_html = \str_get_html($html);
+		
+		// This is the single worst piece of code I've ever written.
+		// The parsed <title> innertext is exploded at the pipe, with
+		// the last remaining item being returned.  This is trimmed
+		// and returned as the thread title.
+		
+		$thread_title = trim(array_pop(explode('|', $parsed_html->find('title',0)->innertext())));
+
+
+		$thread_id_url = $parsed_html->find('a[href^=view_bbs.pl]',0)->href;
+		\parse_str(\parse_url($thread_id_url, \PHP_URL_QUERY), $thread_id_url_array);
+		$thread_id = $thread_id_url_array['id'];
+		$community_id = $thread_id_url_array['comm_id'];
+
+		
+		$obj_array = array();
+
+		$first_lines = $parsed_html->find('dt[class^=commentDate]');
+		foreach($first_lines as $fl){
+			$obj = new obj();
+			$obj->thread_id = $thread_id;
+			$obj->thread_title = $thread_title;
+			$obj->url = $thread_id_url;
+			$obj->message_order = $fl->find('span[class=senderId]',0)->innertext();
+			$obj->datetime = \mixi\decode_date($fl->find('span[class=date]',0)->innertext());
+
+			$user = $fl->next_sibling();
+			$userinfo = $user->find('a[href^=show_friend.pl]',0); #$username = $userinfo->innertext();
+			\parse_str(\parse_url($userinfo->href, \PHP_URL_QUERY), $userurl);
+			$obj->from = $userurl['id'];
+			$obj->contents = trim($user->find('dd',0)->innertext());
+
+			$obj_array[] = $obj;
+		}
+		print_r($obj_array);
+		return $obj_array;
+	}
+	
+}
+
+
+// This namespace will store all classes related to dealing with threads from forums on Mixi.
 namespace mixi\bbs\threads;
 define("MY_MIXI_THREADS_URL", "http://mixi.jp/new_bbs.pl");
 define("COMMUNITY_THREADS_URL", "http://mixi.jp/list_bbs.pl");
@@ -592,6 +654,7 @@ class obj implements \mixi\ns_class{
 	function id(){ return $this->thread_id; }
 	function ns(){ return __NAMESPACE__; }
 }
+
 
 
 // Modify parse so we extract the date as well.
@@ -658,10 +721,8 @@ class related implements \mixi\ns_spider_list{
 		$communities = $posts[4];
 
 		$total = count($communities);
-
 		$posts_array = array();
 
-	
 		for($i=0; $i<$total; $i++){
 			$init_array = array();
 			$init_array['community_name'] = mb_substr(trim($communities[$i]), 1, -1);
@@ -678,13 +739,8 @@ class related implements \mixi\ns_spider_list{
 			\mixi\Factory::init($post, $init_array);
 			array_push($posts_array, $post);
 		}
-		
-		print_r($posts_array);
-		
 		return $posts_array;
-
 	}
-	
 }
 
 
