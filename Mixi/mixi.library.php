@@ -519,18 +519,15 @@ class get_list implements \mixi\ns_spider_list{
 	function post_vars($page){ return array(); }
 	function parse($html){
 		$contents = explode('<ul class="logList01">', $html, 2);
-		
 		$content = $contents[1];
 		$contents = explode('</ul>', $content, 2);
 		$content = $contents[0];
 		$content = mb_convert_encoding($content, "UTF-8", "EUC-JP");
-
 		$date_regex  = '<span class="date">([^<]+)</span>(.*?)';
 		$name_regex  = 'show_friend.pl\?id=(.*?)">([^<]+)</a>';
 		$messages_regex = '#' .  $date_regex . $name_regex .'#uims';
 		preg_match_all($messages_regex, $content, $footprints);
-		
-		
+
 		$footprints[1] = array_map("trim", $footprints[1]);
 		
 		$date = $footprints[1];
@@ -766,6 +763,17 @@ class exec{
 }
 
 
+// This namespace contains everything needed to integrate mixipop3
+// with the djjob staggered program execution model.
+//
+// This is unfortunately needed due to memory leaks and other
+// issues when downloading huge amounts of data (500+ reply threads)
+// I'm going to have to find a way to deal with those anyway, but
+// for the time being I'm going to have to settle with doing them
+// one at a time.
+namespace mixi\djjob;
+
+
 // This namespace stores less low-level functions.
 namespace mixi\library;
 
@@ -913,7 +921,12 @@ function refresh_thread_messages(&$website, $thread){
 	$website->get(\mixi\bbs\posts\get_list::url(), \mixi\bbs\posts\get_list::get_vars($o));
 	$website->encode('EUC-JP','UTF-8');
 	$messages = \mixi\bbs\posts\get_list::parse($website->html);
-	array_map("\mixi\Factory::save", $messages);
+	while ($message = array_pop($messages)){
+		\mixi\Factory::save($message);
+		unset($message);
+	}
+	unset($messages);
+	//#array_map("\mixi\Factory::save", $messages);
 }
 
 function get_thread_messages($thread){
@@ -948,16 +961,42 @@ function refresh_my_threads($website){
 	$website->get(\mixi\bbs\threads\related::url(), \mixi\bbs\threads\related::get_vars($b));
 	$website->encode('EUC-JP','UTF-8');
 	$threads = \mixi\bbs\threads\related::parse($website->html());
-	foreach($threads as $thread){
+	$enable = false;
+	while ($thread = array_pop($threads)){
 		\mixi\Factory::save($thread);
-		sleep(10);
 		echo "Sleeping before retrieving messages for " . $thread->subject . "\n";
+		sleep(5);
+		echo 'memory: ' . memory_get_usage() . "\n"; // 57960
 		refresh_thread_messages($website, $thread);
-		sleep(15);
+		echo 'memory: ' . memory_get_usage() . "\n"; // 57960
 		echo "sleeping...\n";
+		sleep(5);
+		unset($thread);
 	}
 	
 }
+
+function threads(&$website){
+	// Returns a HTML formatted list of recent threads from the DB.
+}
+
+function date_threads($website, $date){
+	
+}
+
+function posts(&$website){
+	// Returns a HTML formatted list of recent posts w/ user info from db
+}
+
+function thread_posts(&$website, $count=0){
+	// Returns a HTML formatted list of recent posts from a thread where count_id > xyz
+}
+
+function date_posts(&$website, $date){
+	// Returns a HTML formatted list of posts after a certain date.
+}
+
+
 
 
 ?>

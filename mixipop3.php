@@ -250,6 +250,19 @@ function mixi_messages($mail_connection, $message){
 	send($from, $messages);
 }
 
+
+
+// Get a list of all recent forum threads in the mixi DB.
+function mixi_threads($mail_connection, $message){
+	$from = $message->from;
+	$to = $message->to;
+	check_valid_from($from);
+	check_valid_list_to($to);
+
+	$posts = \mixi\library\threads($website);
+	send($from, $messages);
+}
+
 // Get a list of all recent emails in the mixi DB.
 function mixi_ashiato($mail_connection, $message){
 	
