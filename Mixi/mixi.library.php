@@ -905,11 +905,7 @@ function recent_ashiato(){
 	return $prep->get();
 }
 
-function refresh_thread_messages($thread){
-	$website = new Website();
-	$website->cookies();
-	\mixi\library\connect($website);
-	
+function refresh_thread_messages(&$website, $thread){
 	$o = new \mixi\bbs\posts\obj();
 	$o->thread_id = $thread->thread_id;
 	$o->community = $thread->community;
@@ -917,7 +913,7 @@ function refresh_thread_messages($thread){
 	$website->get(\mixi\bbs\posts\get_list::url(), \mixi\bbs\posts\get_list::get_vars($o));
 	$website->encode('EUC-JP','UTF-8');
 	$messages = \mixi\bbs\posts\get_list::parse($website->html);
-	\mixi\Factory::save($messages);
+	array_map("\mixi\Factory::save", $messages);
 }
 
 function get_thread_messages($thread){
@@ -934,15 +930,34 @@ function get_thread_messages($thread){
 	return $o_array;
 }
 
-function refresh_community_threads($community){
+function refresh_community_threads(&$website, $community){
 	$b = new \mixi\bbs\threads\obj();
 	$b->community = $community;
 	
 	$website->get($a->url(), \mixi\bbs\threads\community::get_vars($b));
 	$website->encode('EUC-JP','UTF-8');
-	$a->parse($website->html());
-	$a = new \mixi\bbs\threads\community();
+	$threads = $a->parse($website->html());
+	\mixi\Factory::save($threads);
+}
+
+
+function refresh_my_threads($website){
+	
+	$b = new \mixi\bbs\threads\obj();
+	
+	$website->get(\mixi\bbs\threads\related::url(), \mixi\bbs\threads\related::get_vars($b));
+	$website->encode('EUC-JP','UTF-8');
+	$threads = \mixi\bbs\threads\related::parse($website->html());
+	foreach($threads as $thread){
+		\mixi\Factory::save($thread);
+		sleep(10);
+		echo "Sleeping before retrieving messages for " . $thread->subject . "\n";
+		refresh_thread_messages($website, $thread);
+		sleep(15);
+		echo "sleeping...\n";
+	}
 	
 }
+
 
 ?>

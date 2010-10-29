@@ -1,5 +1,12 @@
 <?php
-require_once('mixi.library.php');
+
+require_once( dirname(__FILE__) . "/../website/website.upgrade.php");
+require_once( dirname(__FILE__) . "/mixi.library.php");
+require_once( dirname(__FILE__) . "/../email/pop3.php");
+
+\mysql_connect(\db\constants\host(), \db\constants\user(), \db\constants\pass());
+\mysql_select_db(\db\constants\database());
+\mysql_query("SET NAMES UTF8;");
 
 /*
 $website = new \Website();
@@ -21,7 +28,6 @@ $website->get($a->url(), \mixi\bbs\threads\community::get_vars($b));
 $website->encode('EUC-JP','UTF-8');
 $a->parse($website->html());
 $a = new \mixi\bbs\threads\community();
-*/
 
 $website = new Website();
 $website->cookies();
@@ -40,5 +46,19 @@ print_r(\mixi\bbs\messages\get_list::parse($website->html));
 #\mixi\library\connect($website);
 #print_r(all_ashiato($website, 1));
 
+*/
+$website = new Website();
+$website->cookies();
+\mixi\library\connect($website);
+\mixi\library\refresh_my_threads($website);
+
+/*
+$b='';
+$website->get(\mixi\bbs\threads\related::url(), \mixi\bbs\threads\related::get_vars($b));
+$website->encode('EUC-JP','UTF-8');
+$threads = \mixi\bbs\threads\related::parse($website->html());
+print_r($threads);
+
+*/
 
 ?>

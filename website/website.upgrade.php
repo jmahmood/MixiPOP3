@@ -59,7 +59,7 @@ class Website{
             if ($getvars)
                 $url .= "?" . $getvars;
 	    
-	    echo $url;
+	    echo $url . "\n";
             curl_setopt($this->curl, CURLOPT_URL, $url);
  	    curl_setopt($this->curl, CURLOPT_POST,0);
             curl_setopt($this->curl, CURLOPT_POSTFIELDS,'');
