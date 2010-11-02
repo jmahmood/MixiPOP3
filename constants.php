@@ -1,5 +1,24 @@
 <?php
 
+namespace db\constants;
+define("HOST", "localhost");
+define("USER", "dbusername");
+define("PASS", "dbpassword");
+define("DATABASE", "databasename");
+function host(){
+    return HOST;
+}
+function user(){
+    return USER;
+} 
+function pass(){
+    return PASS;
+}
+function database(){
+    return DATABASE;
+}
+
+
 namespace mixi\constants;
 
 define("EMAIL", "lol.email@example.com");

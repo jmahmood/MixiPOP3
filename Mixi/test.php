@@ -47,10 +47,11 @@ print_r(\mixi\bbs\messages\get_list::parse($website->html));
 #print_r(all_ashiato($website, 1));
 
 */
-$website = new Website();
-$website->cookies();
-\mixi\library\connect($website);
-\mixi\library\refresh_my_threads($website);
+#$website = new Website();
+#$website->cookies();
+#\mixi\library\connect($website);
+
+print_r(\mixi\library\thread_posts(2497010));
 
 /*
 $b='';
