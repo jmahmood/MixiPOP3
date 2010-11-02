@@ -1,4 +1,4 @@
-MixiPOP3 v. 1.100
+MixiPOP3 v. 1.200
 =================
 
 By Jawaad Mahmood
