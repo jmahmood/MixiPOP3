@@ -26,7 +26,7 @@ It's not complete but implements all of the important messaging functions.  Yay.
 
 */
 
-
+$jbug = true;
 
 error_reporting(E_ALL);
 ini_set('display_errors', '1');
@@ -54,11 +54,11 @@ function cycle(){
 		action($mail_connection,$message);
 	}
 	catch(Exception $e){
-		error("Could not perform the action: " . print_r($message, true) . print_r($e, true));
+		error("Could not perform the action: " . print_r($message, true) . $e->getMessage() );
 	}
       $mail_connection->delete($message);
     }
-    die();
+    
     $mail_connection->purge();
   }	
 }
@@ -88,14 +88,33 @@ function action($mail_connection, $message){
 		refresh_mixi_messages($mail_connection, $message);
 		return;
 	}
+
+	if ($request = is_action($subject, 'bbsthreads')){
+		mixi_bbsthreads($mail_connection, $message);
+		return;
+	}
+	
+	if ($request = is_action($subject, 'bbsposts')){
+		mixi_bbsposts($mail_connection, $message);
+		return;
+	}
 	
 	throw new Exception("Unknown request.");
 }
 
 
+function clean_line_endings(&$message){
+  $total = explode("\r", $message);
+  foreach($total as &$t){
+    $t = trim($t);
+  }
+  $message = implode("\r\n", $total);
+}
 
 // Sends a collection of messages to your pop3 email.
 function send($from, $messages){
+
+	global $jbug;
 	$mail_message = "";
 
 	foreach($messages as $message){
@@ -108,36 +127,38 @@ function send($from, $messages){
 		$original_url = 'Original: http://www.mixi.jp/' . $message->url . "<br>\r\n";
 		
 		$details = $message->details;
-		$total = explode("\r", $details);
-		foreach($total as &$t){
-			$t = trim($t);
-		}
-		$total = implode("\r\n", $total);
+		clean_line_endings($details);
 
 		
 		$body = 'Body: ' . "\r\n" . $total . "<br>\r\n";
 		
 		$mail_message .= $reply_to . $subject . $body . $original_url . "<hr>\r\n";
 	}
+	if ($jbug) echo $mail_message;
 	POP3::send_mail($from, 'List Information', $mail_message);
 
 }
 
 
 function send_ashiato($from, $ashiato){
-	$mail_message = "";
+  $mail_message = "";
+  foreach($ashiato as $aa){
+    $u = new \mixi\profile\obj($aa->from);
+    $u->load();
+    
+    $message = "<p><a href='http://www.mixi.jp/show_friend.pl?id=%d&from=navi'>%s</a> visited your page at %s<br><img src='%s' alt='%s'></p>";
+    $message = sprintf($message, $u->id(), $u->nickname, $aa->datetime, $u->profile_picture1, $u->nickname . "'s picture");
+    $mail_message .= $message . "\n<hr>";
+  }
 
-	foreach($ashiato as $aa){
+  POP3::send_mail($from, 'Ashiato List', $mail_message);
+}
 
-		$u = new \mixi\profile\obj($aa->from);
-		$u->load();
-		
-		$message = "<p><a href='http://www.mixi.jp/show_friend.pl?id=%d&from=navi'>%s</a> visited your page at %s<br><img src='%s' alt='%s'></p>";
-		$message = sprintf($message, $u->id(), $u->nickname, $aa->datetime, $u->profile_picture1, $u->nickname . "'s picture");
-		$mail_message .= $message . "\n<hr>";
-	}
 
-	POP3::send_mail($from, 'Ashiato List', $mail_message);
+function send_bbsposts($from, $bbsposts){
+  $mail_message = "";
+  clean_line_endings($bbsposts);
+  POP3::send_mail($from, 'BBS Post List', $bbsposts);
 }
 
 // _____________PARSING__________
@@ -253,14 +274,39 @@ function mixi_messages($mail_connection, $message){
 
 
 // Get a list of all recent forum threads in the mixi DB.
-function mixi_threads($mail_connection, $message){
+function mixi_bbsthreads($mail_connection, $message){
 	$from = $message->from;
 	$to = $message->to;
 	check_valid_from($from);
 	check_valid_list_to($to);
 
-	$posts = \mixi\library\threads($website);
-	send($from, $messages);
+	$website = new Website();
+	$website->cookies();
+	\mixi\library\connect($website);
+
+	\mixi\library\refresh_my_threads($website);
+	$threads = \mixi\library\threads();
+	send_bbsposts($from, $threads);
+}
+
+function mixi_bbsposts($mail_connection, $message){
+	$from = $message->from;
+	$to = $message->to;
+	check_valid_from($from);
+	$THREAD_ID_SEPERATOR = 't_';
+	$MAIL_DOMAIN = '@dsmob.com';
+	$to = str_replace($MAIL_DOMAIN, '', $to);
+	$thread_id = array_pop(explode($THREAD_ID_SEPERATOR, $to));
+	
+	if (!is_numeric($thread_id))
+	  return send_bbsposts($from, "<p>You did not enclose a valid thread id.  We received: " . $thread_id . "</p>");
+
+	$website = new Website();
+	$website->cookies();
+	\mixi\library\connect($website);
+
+	$posts = \mixi\library\thread_posts($website, $thread_id);
+	send_bbsposts($from, $posts);
 }
 
 // Get a list of all recent emails in the mixi DB.
