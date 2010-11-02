@@ -58,7 +58,8 @@ class Website{
 	    }
             if ($getvars)
                 $url .= "?" . $getvars;
-
+	    
+	    echo $url . "\n";
             curl_setopt($this->curl, CURLOPT_URL, $url);
  	    curl_setopt($this->curl, CURLOPT_POST,0);
             curl_setopt($this->curl, CURLOPT_POSTFIELDS,'');
@@ -132,8 +133,8 @@ class Website{
             // Enables cookies.
             $this->fp = fopen( dirname(__FILE__) . "/cookiejar.txt", "w");
 
-	    curl_setopt($this->curl, CURLOPT_COOKIEJAR, $this->fp);
-      	    curl_setopt($this->curl, CURLOPT_COOKIEFILE, $this->fp);
+	    curl_setopt($this->curl, CURLOPT_COOKIEJAR, $this->fp); // To send cookies to the server
+      	    curl_setopt($this->curl, CURLOPT_COOKIEFILE, $this->fp); // To save cookies from the server.
 
         }
         

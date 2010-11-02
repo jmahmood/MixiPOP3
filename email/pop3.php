@@ -46,6 +46,16 @@ class pop3{
     if ($array) $this->init($array);
   }
   
+  function __destruct(){
+
+    // You will have iMap errors, even if there are no
+    // mails on the server.  This suppresses that error.
+    imap_errors();
+
+    imap_close($this->connection);
+    
+  }
+  
   function purge(){
     imap_expunge($this->connection);
   }
