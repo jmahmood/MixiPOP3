@@ -1,4 +1,12 @@
 <?php
+/*
+Current Problems;
+
+It doesn't spider the very first message in a thread.  This doesn't really
+matter for the threads I am aiming at (Gaijin lovers, etc..), but it should
+be fixed.
+
+*/
 
 /*
 MixiLibrary 1.0
@@ -179,9 +187,27 @@ class Factory{
 		return $return;
 	}
 	
-	static function load_all($object){
+	// Where is an array of arrays.
+	// Each individual array has the 0th element holding the field & action,
+	// while the second field holds the value.
+	// IE: array ( 'id > ', '169')
+	// Should use a real DB abstraction layer really :(
+	static function load_all($object, $where=false){
 		$table = self::extract_table_name($object);
 		$query = "SELECT * FROM $table";
+		
+		if ($where){
+			$where_query = array();
+			while ($item = array_pop($where)){
+				$item[1] = mysql_real_escape_string($item[1]);
+				$where_query[] = "{$item[0]} '{$item[1]}'";
+			}
+
+			$where = implode(' and ', $where_query);
+			unset($where_query);
+			$query .= ' WHERE ' . $where;
+		}
+		
 		$results = mysql_query($query) or die(mysql_error());
 		$return = array();
 		while ($result = mysql_fetch_assoc($results)){
@@ -193,6 +219,22 @@ class Factory{
 	static function load_new($object){
 		$table = self::extract_table_name($object);
 		$query = "SELECT * FROM $table order by `datetime` DESC LIMIT 50";
+		$results = mysql_query($query) or die(mysql_error());
+		$return = array();
+		while ($result = mysql_fetch_assoc($results)){
+			$return[] = $result;
+		}
+		return $return;
+	}
+	
+	// This function is not safe for direct insertion of dates.
+	// Sucks to be you if you don't have an IDE and ignore comments.
+	// Try the Bobby Tables attack on the date, if anyone you
+	// don't care about is stupid enough to accept user input
+	// into this function (or any of the functions in this class)
+	static function load_after($object, $date){
+		$table = self::extract_table_name($object);
+		$query = "SELECT * FROM $table where `datetime` > '$date' order by `datetime` DESC LIMIT 50";
 		$results = mysql_query($query) or die(mysql_error());
 		$return = array();
 		while ($result = mysql_fetch_assoc($results)){
@@ -229,7 +271,14 @@ class obj implements \mixi\ns_class{
 	function image(){ return $profile_picture1; }
 	function load(){
 		$a = \mixi\Factory::load($this, $this->id(), 'mixi_id');
+		if (!$a){
+			throw new \Exception("No such user in our DB.  Might be deleted or not spidered.");
+		}
 		\mixi\Factory::init($this, $a[0]);
+	}
+	
+	function url(){
+		return 'http://mixi.jp/' . get_profile::url($this) . '?' . get_profile::get_vars($this);
 	}
 }
 
@@ -273,7 +322,8 @@ class get_profile implements \mixi\ns_spider{
 		'好きなゲーム'=>'game',
 		'好きなギャンブル'=>'gambling',
 		'好きなアウトドア'=>'outdoors',
-		'好きな習いごと'=>'learn'
+		'好きな習いごと'=>'learn',
+		'好きなブランド'=>'brand'
 		
 		
 		);
@@ -430,6 +480,7 @@ class get_message implements \mixi\ns_spider{
 		$mmi = $parsed_html->find('form[action^=reply_message.pl?reply_message_id]');
 		$mixi_message_id = $mmi[0]->action;
 		\parse_str(\parse_url($mixi_message_id, \PHP_URL_QUERY), $array);
+		
 
 		$mmi = $parsed_html->find('a[href^=show_friend.pl?]');
 		\parse_str(\parse_url($mmi[1]->href, \PHP_URL_QUERY), $array2);
@@ -518,18 +569,15 @@ class get_list implements \mixi\ns_spider_list{
 	function post_vars($page){ return array(); }
 	function parse($html){
 		$contents = explode('<ul class="logList01">', $html, 2);
-		
 		$content = $contents[1];
 		$contents = explode('</ul>', $content, 2);
 		$content = $contents[0];
 		$content = mb_convert_encoding($content, "UTF-8", "EUC-JP");
-
 		$date_regex  = '<span class="date">([^<]+)</span>(.*?)';
 		$name_regex  = 'show_friend.pl\?id=(.*?)">([^<]+)</a>';
 		$messages_regex = '#' .  $date_regex . $name_regex .'#uims';
 		preg_match_all($messages_regex, $content, $footprints);
-		
-		
+
 		$footprints[1] = array_map("trim", $footprints[1]);
 		
 		$date = $footprints[1];
@@ -579,9 +627,224 @@ class last_ten{
 namespace mixi\blog;
 define("DIARY_URL", "http://mixi.jp/new_friend_diary.pl");
 
-// This namespace will store all classes related to dealing with message forums on Mixi.
-namespace mixi\bbs;
-define("MIXI_THREADS_URL", "http://mixi.jp/new_bbs.pl");
+// This namespace extracts information about messages from a thread.
+namespace mixi\bbs\posts;
+class obj implements \mixi\ns_class{
+	public $community, $thread_id, $thread_title, $message_order, $from, $datetime, $contents, $url;
+	function __construct($id=false){ if ($id){ $this->set_id($id);} }
+	function set_id($id){ $this->thread_id = $id; }
+	function id(){ return $this->thread_id; }
+	function ns(){ return __NAMESPACE__; }
+	function __toString(){ return mail::html($this); }
+}
+
+class mail{
+	static function html($obj){
+		$from = new \mixi\profile\obj($obj->from);
+		try{
+			$from->load();
+			$url = $from->url();
+			return <<<ENDLINE
+<p><img src='{$from->profile_picture1}' alt='{$from->nickname}'s picture'><br><a href="$url">{$from->nickname}</a><br>{$obj->message_order} ({$obj->datetime})<br><a href='mailto:{$obj->from}@dsmob.com'>Contact Writer</a></p>
+<div>{$obj->contents}</div>
+ENDLINE;
+		}
+		catch(\Exception $e){
+			return "<p>Someone posted a message here but their profile is not yet available.  They were probably deleted.  You can check here: show_friend.pl?id={$obj->from}&from=navi</p> <div>{$obj->contents}</div>";
+		}
+	}
+	
+	static function txt($obj){
+		return <<<ENDLINE
+{$obj->subject}
+{$obj->community_name} ({$obj->datetime})                             
+
+Send a list request to t_{$obj->thread_id}@dsmob.com to
+get the full message.
+ENDLINE;
+		
+	}
+}
+
+
+// Gets all messages from a threads.
+class get_list implements \mixi\ns_spider_list{
+	// For some reason, it won't return the full page
+	// if you don't include the "www" in the url.
+	function url(){ return 'http://www.mixi.jp/view_bbs.pl'; }
+	function post_vars($obj){ return false; }
+	function get_vars($obj){
+		if (!$obj->thread_id) throw new \Exception("The object must have a thread id to be passed to the messagethreads function");
+		$array = array('id'=>$obj->thread_id,'comm_id'=>$obj->community);
+		if (isset($obj->page)) $array['page']= $obj->page;
+		return \mixi\url_encode_array( $array );
+	}
+	function parse($html){
+		$parsed_html = \str_get_html($html);
+		
+		// This is the single worst piece of code I've ever written.
+		// The parsed <title> innertext is exploded at the pipe, with
+		// the last remaining item being returned.  This is trimmed
+		// and returned as the thread title.
+		
+		$thread_title = trim(array_pop(explode('|', $parsed_html->find('title',0)->innertext())));
+
+
+		$thread_id_url = $parsed_html->find('a[href^=view_bbs.pl]',0)->href;
+		\parse_str(\parse_url($thread_id_url, \PHP_URL_QUERY), $thread_id_url_array);
+		$thread_id = $thread_id_url_array['id'];
+		$community_id = $thread_id_url_array['comm_id'];
+
+		
+		$obj_array = array();
+
+		$first_lines = $parsed_html->find('dt[class^=commentDate]');
+		foreach($first_lines as $fl){
+			$obj = new obj();
+			$obj->thread_id = $thread_id;
+			$obj->thread_title = $thread_title;
+			$obj->url = $thread_id_url;
+			$obj->message_order = $fl->find('span[class=senderId]',0)->innertext();
+			$obj->datetime = \mixi\decode_date($fl->find('span[class=date]',0)->innertext());
+
+			$user = $fl->next_sibling();
+			$userinfo = $user->find('a[href^=show_friend.pl]',0); #$username = $userinfo->innertext();
+			\parse_str(\parse_url($userinfo->href, \PHP_URL_QUERY), $userurl);
+			$username = $userinfo->innertext();
+			$obj->username = $username;
+			$obj->from = $userurl['id'];
+			$obj->contents = trim($user->find('dd',0)->innertext());
+
+			$obj_array[] = $obj;
+		}
+		return $obj_array;
+	}
+	
+}
+
+
+// This namespace will store all classes related to dealing with threads from forums on Mixi.
+namespace mixi\bbs\threads;
+define("MY_MIXI_THREADS_URL", "http://mixi.jp/new_bbs.pl");
+define("COMMUNITY_THREADS_URL", "http://mixi.jp/list_bbs.pl");
+
+class obj implements \mixi\ns_class{
+	public $thread_id, $community, $community_name, $subject, $datetime, $url;
+	function __construct($id=false){ if ($id){ $this->set_id($id);} }
+	function set_id($id){ $this->thread_id = $id; }
+	function id(){ return $this->thread_id; }
+	function ns(){ return __NAMESPACE__; }
+	
+	
+	function __toString(){ return mail::html($this); }
+}
+
+class mail{
+	static function html($obj){
+		return <<<ENDLINE
+<h2>{$obj->subject}</h2><p>{$obj->community_name} ({$obj->datetime})</p><p><a href='mailto:t_{$obj->thread_id}@dsmob.com'>Get All</a></p>
+ENDLINE;
+	}
+	
+	static function txt($obj){
+		return <<<ENDLINE
+{$obj->subject}
+{$obj->community_name} ({$obj->datetime})                             
+
+Send a list request to t_{$obj->thread_id}@dsmob.com to
+get the full message.
+ENDLINE;
+		
+	}
+}
+
+
+// Modify parse so we extract the date as well.
+
+// Gets all front-page threads from a community.
+class community implements \mixi\ns_spider_list{
+	function url(){ return COMMUNITY_THREADS_URL; }
+	function post_vars($obj){ return false; }
+	function get_vars($obj){
+		if (!$obj->community) throw new \Exception("The object must have a community id to be passed to the community threads function");
+		$array = array('id'=>$obj->community,'type'=>'bbs');
+		return \mixi\url_encode_array( $array );
+	}
+	function parse($html){
+		$parsed_html = \str_get_html($html);
+		$community_name = $parsed_html->find('title');
+		$community_name = $community_name[0]->innertext();
+		$community_name = trim(str_replace(array('[mixi]','トピック一覧'),array('',''),$community_name));
+		
+		
+		$mmi = $parsed_html->find('dt[class=bbsTitle]');
+		$objects = array();
+		foreach ($mmi as $ret){
+			$a = new obj();
+			$a->community_name = $community_name;
+
+			$ref = $ret->find('span[class=date]');
+			$a->datetime = \mixi\decode_date($ref[0]->innertext());
+
+			$ref = $ret->find('a[href^=view_bbs.pl?]');
+			foreach($ref as $r){
+				if (!is_numeric($r->innertext) && $r->innertext != 'コメント'){
+					$a->subject = $r->innertext;
+					$a->url = $r->href;
+					\parse_str(\parse_url($a->url, \PHP_URL_QUERY), $array);
+					$a->community = $array['comm_id'];
+					$a->thread_id = $array['id'];
+				}
+				elseif (is_numeric($r->innertext)){
+					$a->post_count = $r->innertext;
+				}
+			}
+			$objects[] = $a;
+		}
+		return $objects;
+	}
+	
+}
+
+// Gets all threads related to you.
+class related implements \mixi\ns_spider_list{
+	function url(){ return MY_MIXI_THREADS_URL; }
+	function post_vars($obj){ return false; }
+	function get_vars($obj){ return false; }
+	function parse($html){
+		$datetime_regex = '<dt class="iconTopic">([^<]+)</dt>[^<]+';
+		$link_topic_community_regex = '<dd><a href="([^"]+)">([^<]+)</a>([^<]+)</dd>';
+		$messages_regex = '#' . $datetime_regex . $link_topic_community_regex . '#ims';
+	
+		preg_match_all($messages_regex, $html, $posts);
+		$dates = $posts[1];
+		$urls = $posts[2];
+		$subjects = $posts[3];
+		$communities = $posts[4];
+
+		$total = count($communities);
+		$posts_array = array();
+
+		for($i=0; $i<$total; $i++){
+			$init_array = array();
+			$init_array['community_name'] = mb_substr(trim($communities[$i]), 1, -1);
+			$init_array['subject'] = $subjects[$i];
+			$init_array['datetime'] = \mixi\decode_date($dates[$i]);
+			$init_array['url'] = $urls[$i];
+			
+			\parse_str(\parse_url($urls[$i], \PHP_URL_QUERY), $array);
+			$init_array['community'] = $array['comm_id'];
+			$init_array['thread_id'] = $array['id'];
+
+
+			$post = new obj();
+			\mixi\Factory::init($post, $init_array);
+			array_push($posts_array, $post);
+		}
+		return $posts_array;
+	}
+}
+
 
 // This namespace stores all classes related to dealing with logging into Mixi.
 namespace mixi\login;
@@ -601,6 +864,17 @@ class exec{
 		return array('sticky'=>'ON','next_url'=>'\home.pl','email'=>\mixi\constants\email(), 'password'=>\mixi\constants\password(), 'x'=>0, 'y'=>0);
 	}
 }
+
+
+// This namespace contains everything needed to integrate mixipop3
+// with the djjob staggered program execution model.
+//
+// This is unfortunately needed due to memory leaks and other
+// issues when downloading huge amounts of data (500+ reply threads)
+// I'm going to have to find a way to deal with those anyway, but
+// for the time being I'm going to have to settle with doing them
+// one at a time.
+namespace mixi\djjob;
 
 
 // This namespace stores less low-level functions.
@@ -681,13 +955,39 @@ function all_ashiato($website, $page){
 function download_user_profile(&$website, $id){
 	// Retrieves the To and From from $obj.
 	$mp = new \mixi\profile\obj($id);
-	$url = 'http://www.mixi.jp/' . \mixi\profile\get_profile::url($mp);
+	$url = 'http://mixi.jp/' . \mixi\profile\get_profile::url($mp);
 	$get_vars = \mixi\profile\get_profile::get_vars($mp);
 	$website->get($url, $get_vars);
+	$website->encode('EUC-JP','UTF-8');
 	$html = $website->html();
-	$html = mb_convert_encoding($html, "UTF-8", "EUC-JP");
 	\mixi\profile\get_profile::harmonize($mp, $html);
+	echo "Downloaded: $mp->nickname\n";
 	return $mp;
+}
+
+function recheck_profiles(&$website){
+	$query = "SELECT mixi_id FROM ruined_profiles WHERE confirmed = 0";
+	$profile_ids = mysql_query($query) or die(mysql_error());
+	while($p_id = mysql_fetch_row($profile_ids)){
+		$id = $p_id[0];
+		try{
+			$profile = download_user_profile($website, $id);
+			\mixi\Factory::save($profile);
+			$query = "UPDATE ruined_profiles SET confirmed = 2 WHERE mixi_id=%d";
+			$query = \sprintf($query, $id);
+			\mysql_query($query);
+
+		}
+		catch(\Exception $e){
+			$query = "UPDATE ruined_profiles SET confirmed = 1 WHERE mixi_id=%d";
+			$query = \sprintf($query, $id);
+			\mysql_query($query);
+			echo "Could not download profile {$id}.  Does it no longer exist?\n";
+			echo $e->getMessage() . "\n";
+		}
+		sleep(2);
+		
+	}
 }
 
 function download_user_profile_image(&$website, $object){
@@ -707,14 +1007,30 @@ function download_profile_if_new(&$website, $id){
 	$q = "SELECT mixi_id FROM profile WHERE mixi_id=%d";
 	$q = sprintf($q, $id);
 	$r = mysql_query($q) or die(mysql_error());
+	if (mysql_num_rows($r) > 0) return false;// didn't download.
+	
+	$q = "select mixi_id from ruined_profiles where mixi_id=%d";
+	$q = sprintf($q, $id);
+	$r = mysql_query($q) or die(mysql_error());
+	if (mysql_num_rows($r) > 0) return false;// didn't download.
+	
 	if (mysql_num_rows($r) == 0){
 		try{
 			$profile = \mixi\library\download_user_profile($website, $id);
 			\mixi\Factory::save($profile);
 		}
 		catch(\Exception $e){
-			echo "Could not download profile $id.  Does it no longer exist?";
-			sleep(2);
+			
+			str_replace('一時的に機能を制限させていただきます。自動的に解除されるまでお待ちください','',$website->html(), $count);
+			if ($count > 0){
+				throw new Exception("Exceeded Mixi Profile View Limit.");
+			}
+			
+			$query = "INSERT IGNORE INTO ruined_profiles (`mixi_id`) VALUES (%d)";
+			$query = sprintf($query, $id);
+			mysql_query($query);
+			echo "Could not download profile {$id}.  Does it no longer exist?\n";
+			echo $e->getMessage() . "\n";
 		}
 	}
 }
@@ -742,27 +1058,163 @@ function recent_ashiato(){
 	return $prep->get();
 }
 
-/*
-$website = new \Website();
-$website->cookies();
-\mixi\library\connect($website);
+function refresh_new_thread_messages(&$website, $thread, $download_profiles = true){
+	$o = new \mixi\bbs\posts\obj();
+	$o->thread_id = $thread->thread_id;
+	$o->community = $thread->community;
+	$website->get(\mixi\bbs\posts\get_list::url(), \mixi\bbs\posts\get_list::get_vars($o));
+	$website->encode('EUC-JP','UTF-8');
+	$posts = \mixi\bbs\posts\get_list::parse($website->html);
+	$c = count($posts);
+	for ($i=0; $i < $c; $i++){
+		$post = $posts[$i];
+		\mixi\Factory::save($post);
+		$from = $post->from;
+		try{
+			if ($download_profiles) download_profile_if_new($website, $from);
+		}
+		catch (\Exception $e){
+			echo "We have exceeded the number of profiles we can download.";
+			echo "We are going to stop collecting profiles and extract the info we can.";
+			$download_profiles = false;
+		}
+		sleep(2);
+	}
+	return $posts;
+}
 
-$object = new \mixi\messages\obj();
-$object->to = 13465281;
-$object->subject= "Yumiko?";
-$object->details = "Can I take Yumiko out on a date??"; // The answer is "fuck you."
-$a = \mixi\library\send($website, $object)
+
+function refresh_thread_messages(&$website, $thread, $download_profiles = true){
+	$o = new \mixi\bbs\posts\obj();
+	$o->thread_id = $thread->thread_id;
+	$o->community = $thread->community;
+	$o->page = 'all';
+	$website->get(\mixi\bbs\posts\get_list::url(), \mixi\bbs\posts\get_list::get_vars($o));
+	$website->encode('EUC-JP','UTF-8');
+	$posts = \mixi\bbs\posts\get_list::parse($website->html);
+	$c = count($posts);
+	for ($i=0; $i < $c; $i++){
+		$post = $posts[$i];
+		\mixi\Factory::save($post);
+		$from = $post->from;
+		try{
+			if ($download_profiles) download_profile_if_new($website, $from);
+		}
+		catch (\Exception $e){
+			echo "We have exceeded the number of profiles we can download.";
+			echo "We are going to stop collecting profiles and extract the info we can.";
+			$download_profiles = false;
+		}
+		sleep(2);
+	}
+	return $posts;
+}
+
+function get_thread_messages($thread){
+	$o = new \mixi\bbs\posts\obj();
+	$o->thread_id = $thread->thread_id;
+	$array = \mixi\Factory::load($o, $o->thread_id, 'thread_id');
+
+	$o_array = array();
+	foreach($array as $a){
+		$o = new \mixi\bbs\posts\obj();
+		\mixi\Factory::init($o, $a);
+		$o_array[] = $o;
+	}
+	unset($array);
+	return $o_array;
+}
+
+function refresh_community_threads(&$website, $community){
+	$b = new \mixi\bbs\threads\obj();
+	$b->community = $community;
+	
+	$website->get($a->url(), \mixi\bbs\threads\community::get_vars($b));
+	$website->encode('EUC-JP','UTF-8');
+	$threads = $a->parse($website->html());
+	\mixi\Factory::save($threads);
+}
 
 
+function refresh_my_threads(&$website, $download_messages=false){
+	$b = new \mixi\bbs\threads\obj();
+	$website->get(\mixi\bbs\threads\related::url(), \mixi\bbs\threads\related::get_vars($b));
+	$website->encode('EUC-JP','UTF-8');
+	$threads = \mixi\bbs\threads\related::parse($website->html());
+	$enable = false;
+	while ($thread = array_pop($threads)){
+		echo "Saving " . $thread->subject . "\n";
+
+		\mixi\Factory::save($thread);
+		if ($download_messages){
+			echo "Sleeping before retrieving messages for " . $thread->subject . "\n";
+			sleep(5);
+			refresh_new_thread_messages($website, $thread);
+			echo "sleeping...\n";
+			sleep(4);
+		}
+		unset($thread);
+	}
+	
+}
+
+function threads(){
+	// Returns a HTML formatted list of recent threads from the DB.
+	$obj = new \mixi\bbs\threads\obj();
+	$thread_arrays = \mixi\Factory::load_new($obj);
+	$threads = array();
+	foreach($thread_arrays as $thread){
+		$thread_object = new \mixi\bbs\threads\obj();
+		\mixi\Factory::init($thread_object, $thread);
+		$threads[] = $thread_object->__toString();
+	}
+	return implode("\n<hr>\n", $threads);
+}
+
+function date_threads($website, $date){
+	// Returns a HTML formatted list of recent threads from the DB.
+	$obj = new \mixi\bbs\threads\obj();
+	$thread_arrays = \mixi\Factory::load_after($obj, $date);
+	$threads = array();
+	foreach($thread_arrays as $thread){
+		$thread_object = new \mixi\bbs\threads\obj();
+		\mixi\Factory::init($thread_object, $thread);
+		$threads[] = $thread_object->__toString();
+	}
+	return implode("\n<hr>\n", $threads);
+}
+
+function posts(){
+	// Returns a HTML formatted list of recent posts w/ user info from db
+	$obj = new \mixi\bbs\posts\obj();
+	$post_arrays = \mixi\Factory::load_new($obj);
+	$posts = array();
+	foreach($post_arrays as $post){
+		$post_object = new \mixi\bbs\posts\obj();
+		\mixi\Factory::init($post_object, $post);
+		$posts[] = $post_object->__toString();
+	}
+	return implode("\n<hr>\n", $posts);
+}
+
+function thread_posts(&$website, $thread, $message_order=0){
+	// Returns a HTML formatted list of recent posts from a thread where message_order > xyz
+	if (is_numeric($thread)) $thread = new \mixi\bbs\threads\obj($thread);
+	
+	$posts = refresh_new_thread_messages($website, $thread);
+	$post_output = array();
 
 
+	foreach($posts as $post){
+		$post_output[] = $post->__toString();
+	}
+	return implode("\n<hr>\n", $posts);
+	
+}
 
-$website = new \Website();
-$website->cookies();
-\mixi\library\connect($website);
-print_r(all_ashiato($website, 1));
-
-*/
+function date_posts(&$website, $date){
+	// Returns a HTML formatted list of posts after a certain date.
+}
 
 
 ?>
